@@ -1,4 +1,3 @@
-
 #include <ql/qldefines.hpp>
 #ifdef BOOST_MSVC
 #  include <ql/auto_link.hpp>
@@ -15,7 +14,11 @@
 #include <ql/utilities/dataformatters.hpp>
 #include <iostream>
 #include <chrono>
+#include <ql/termstructures/yieldtermstructure.hpp>
+#include <ql/termstructures/yield/flatforward.hpp>
 
+
+// To see all changes that we have done, go check my github progfile 
 using namespace QuantLib;
 
 int main() {
@@ -27,27 +30,51 @@ int main() {
         Calendar calendar = TARGET();
         Date today = Date(24, February, 2021);
         Settings::instance().evaluationDate() = today;
-
+        DayCounter dayCounter = Actual365Fixed();
+        
         Option::Type type(Option::Put);
-        Real underlying = 36;
+        Real underlyingR = 36;
         Real strike = 40;
+
+
+        Volatility volatilityR = 0.20 ;
+        Rate dividend_rate =  0.0163;
+
+        Rate risk_free_rate = 0.001;
+
         Date maturity(24, May, 2021);
+        
+       
+        
 
         ext::shared_ptr<Exercise> europeanExercise(new EuropeanExercise(maturity));
         ext::shared_ptr<StrikedTypePayoff> payoff(new PlainVanillaPayoff(type, strike));
 
-        Handle<Quote> underlyingH(ext::make_shared<SimpleQuote>(underlying));
+        
+        Handle<Quote> underlying(ext::make_shared<SimpleQuote>(underlyingR));
 
-        DayCounter dayCounter = Actual365Fixed();
-        Handle<YieldTermStructure> riskFreeRate(
+        
+       
+         Handle<YieldTermStructure> riskFreeRate(
             ext::shared_ptr<YieldTermStructure>(
-                new ZeroCurve({today, today + 6*Months}, {0.01, 0.015}, dayCounter)));
-        Handle<BlackVolTermStructure> volatility(
-            ext::shared_ptr<BlackVolTermStructure>(
-                new BlackVarianceCurve(today, {today+3*Months, today+6*Months}, {0.20, 0.25}, dayCounter)));
+                new FlatForward(today, risk_free_rate, dayCounter)));
 
-        ext::shared_ptr<BlackScholesProcess> bsmProcess(
-                 new BlackScholesProcess(underlyingH, riskFreeRate, volatility));
+         
+        
+         Handle<BlackVolTermStructure> volatility(
+            ext::shared_ptr<BlackVolTermStructure>(
+                new BlackConstantVol(today, calendar, volatilityR, dayCounter)));
+     
+         Handle<YieldTermStructure> dividendTS(
+                ext::shared_ptr<YieldTermStructure>(
+                    new FlatForward(today, dividend_rate, dayCounter)));
+      
+
+         ext::shared_ptr<GeneralizedBlackScholesProcess> bsmProcess(
+                 new BlackScholesMertonProcess(underlying,  dividendTS,  riskFreeRate, volatility));
+        
+        
+        
 
         // options
         VanillaOption europeanOption(payoff, europeanExercise);
@@ -71,6 +98,7 @@ int main() {
 
         std::cout << "NPV: " << NPV << std::endl;
         std::cout << "Elapsed time: " << us / 1000000 << " s" << std::endl;
+        
 
         return 0;
 
@@ -82,4 +110,3 @@ int main() {
         return 1;
     }
 }
-
